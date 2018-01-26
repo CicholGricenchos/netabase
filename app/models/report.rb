@@ -2,7 +2,7 @@ class Report < ApplicationRecord
   serialize :schema, JSON
 
   def exec_query **params
-    QueryConnection.connection.execute(query(**params))
+    QueryConnection.connection.select_all(query(**params))
   end
 
   def query **params
@@ -10,7 +10,8 @@ class Report < ApplicationRecord
     params_in_source = schema['source'].scan(regexp).flatten
     source = schema['source'].gsub(regexp, '?')
     param_values = default_params.merge(params.with_indifferent_access).values_at(*params_in_source)
-    ActiveRecord::Base.send(:sanitize_sql, [source, *param_values])
+    output_columns = schema['output']
+    ActiveRecord::Base.send(:sanitize_sql, ["SELECT #{output_columns.join(',')} #{source}", *param_values])
   end
 
   def default_params
