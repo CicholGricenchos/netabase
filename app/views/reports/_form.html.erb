@@ -1,0 +1,21 @@
+<%= form_with model: @report do |f| %>
+  <div>
+    <%= f.label :name %>
+    <%= f.text_field :name %>
+  </div>
+  <div>
+    <%= f.label :source %>
+    <%= f.text_area :source %>
+  </div>
+  <div>
+    <%= f.label :params %>
+    <%= f.text_area :params %>
+  </div>
+  <div>
+    <%= f.label :output %>
+    <%= f.text_area :output %>
+  </div>
+  <div>
+    <%= f.submit %>
+  </div>
+<% end %>

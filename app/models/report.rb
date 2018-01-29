@@ -2,20 +2,47 @@ class Report < ApplicationRecord
   serialize :schema, JSON
 
   def exec_query **params
-    QueryConnection.connection.select_all(query(**params))
+    query_connection.select_all(query(**params))
   end
 
-  def query **params
-    regexp = /#\{(.+?)\}/
-    params_in_source = schema['source'].scan(regexp).flatten
-    source = schema['source'].gsub(regexp, '?')
-    param_values = default_params.merge(params.with_indifferent_access).values_at(*params_in_source)
-    output_columns = schema['output']
-    ActiveRecord::Base.send(:sanitize_sql, ["SELECT #{output_columns.join(',')} #{source}", *param_values])
+  def query **args
+    args = args.with_indifferent_access
+    arguments = (params || {}).map do |key, value|
+      [key, quote(value['type'], (args[key] || parse_default_param(value['type'], value['default']) || raise))]
+    end.to_h
+    interpolated_source = source.gsub(/#\{(.+?)\}/) do
+      arguments[$1]
+    end
+    "SELECT #{output.join(',')} #{interpolated_source}"
+  end
+
+  def source
+    schema['source']
+  end
+
+  def params
+    schema['params']
+  end
+
+  def output
+    schema['output']
   end
 
   def default_params
     schema['params'].select{|_, v| v['default']}.map{|k, v| [k, parse_default_param(v['type'], v['default'])]}.to_h
+  end
+
+  def query_connection
+    QueryConnection.connection
+  end
+
+  def quote type, value
+    case type
+    when 'report'
+      value
+    else
+      query_connection.quote value
+    end
   end
 
   def parse_default_param type, value
@@ -26,6 +53,8 @@ class Report < ApplicationRecord
       DateTime.parse(value)
     when 'time'
       Time.parse(value)
+    when 'report'
+      "(#{Report.find(value.match(/Report#(\d+)/)[1]).query})"
     end
   end
 end
